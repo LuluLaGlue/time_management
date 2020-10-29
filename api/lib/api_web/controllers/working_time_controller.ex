@@ -10,6 +10,9 @@ defmodule ApiWeb.WorkingTimeController do
   action_fallback ApiWeb.FallbackController
 
   def index(conn, %{"userID" => id}) do
+    token_user = get_req_header(conn, "token")
+    token_api = [System.get_env("token")]
+    if token_user == token_api do
     # if System.get_env("token") != nil do
       if id != "all" do
         where = [id: id]
@@ -40,72 +43,81 @@ defmodule ApiWeb.WorkingTimeController do
         |>put_status(200)
         |> json(clock)
       end
-    # else
-    #   conn
-    #   |> put_status(404)
-    #   |> json(%{"error" => "{'credentials': ['you are not logged in'}]"})
-    # end
+    else
+      conn
+      |> put_status(404)
+      |> json(%{"error" => "{'credentials': ['unauthorized'}]"})
+    end
   end
 
   def create(conn, params) do
+    token_user = get_req_header(conn, "token")
+    token_api = [System.get_env("token")]
+    if token_user == token_api do
     # if System.get_env("token") != nil do
-    if params["userID"] != nil and params["start"] != nil and params["end"] != nil do
-      user = Repo.get(User, params["userID"])
+      if params["userID"] != nil and params["start"] != nil and params["end"] != nil do
+        user = Repo.get(User, params["userID"])
 
-      if user do
-        changeset =
-          WorkingTime.changeset(%WorkingTime{}, %{"start" => params["start"], "end" => params["end"], "user" => params["userID"]})
+        if user do
+          changeset =
+            WorkingTime.changeset(%WorkingTime{}, %{"start" => params["start"], "end" => params["end"], "user" => params["userID"]})
 
-        case Repo.insert(changeset) do
-          {:ok, _workingtimes} ->
-            json(conn |> put_status(:created), %{success: "Created"})
+          case Repo.insert(changeset) do
+            {:ok, _workingtimes} ->
+              json(conn |> put_status(:created), %{success: "Created"})
 
-          {:error, changeset} ->
-            errors = "#{inspect(changeset.errors)}" |> String.replace("[", "(") |> String.replace("]", ")") |> String.replace("{", "[") |> String.replace("}", "]") |> String.replace("(", "{") |> String.replace(")", "}") |> String.replace(" :", " ")
+            {:error, changeset} ->
+              errors = "#{inspect(changeset.errors)}" |> String.replace("[", "(") |> String.replace("]", ")") |> String.replace("{", "[") |> String.replace("}", "]") |> String.replace("(", "{") |> String.replace(")", "}") |> String.replace(" :", " ")
 
-            json(conn |> put_status(:bad_request), %{errors: errors})
+              json(conn |> put_status(:bad_request), %{errors: errors})
+          end
+        else
+          conn
+          |> put_status(404)
+          |> json(%{"errors" => "{'credentials': ['user not found']}"})
         end
       else
         conn
-        |> put_status(404)
-        |> json(%{"errors" => "{'credentials': ['user not found']}"})
+        |> put_status(401)
+        |> json(%{"errors" => "{'params': ['missing parameter']}"})
       end
     else
       conn
-      |> put_status(401)
-      |> json(%{"errors" => "{'params': ['missing parameter']}"})
+      |> put_status(404)
+      |> json(%{"error" => "{'credentials': ['unauthorized'}]"})
     end
-    # else
-    #   conn
-    #   |> put_status(404)
-    #   |> json(%{"error" => "{'credentials': ['you are not logged in'}]"})
-    # end
   end
 
   def show(conn, %{"userID" => id, "workingtimeID" => working_time_id}) do
-    # if System.get_env("token") != nil do
-      where = [user: id, id: working_time_id]
-      select = [:start, :end, :id, :user]
-      query = from WorkingTime, where: ^where, select: ^select
+    token_user = get_req_header(conn, "token")
+    token_api = [System.get_env("token")]
+    if token_user == token_api do
+      # if System.get_env("token") != nil do
+        where = [user: id, id: working_time_id]
+        select = [:start, :end, :id, :user]
+        query = from WorkingTime, where: ^where, select: ^select
 
-      workingtime = Repo.one(query)
+        workingtime = Repo.one(query)
 
-      if workingtime == nil do
-        conn
-        |> put_status(404)
-        |> json(%{"errors" => "{'credentials': ['working times not found']}"})
-      else
-        working_time = Time.get_working_time!(%{"userID" => id, "workingtimeID" => working_time_id})
-        render(conn, "show.json", working_time: working_time)
-      end
-    # else
-    #   conn
-    #   |> put_status(404)
-    #   |> json(%{"error" => "{'credentials': ['you are not logged in'}]"})
-    # end
+        if workingtime == nil do
+          conn
+          |> put_status(404)
+          |> json(%{"errors" => "{'credentials': ['working times not found']}"})
+        else
+          working_time = Time.get_working_time!(%{"userID" => id, "workingtimeID" => working_time_id})
+          render(conn, "show.json", working_time: working_time)
+        end
+    else
+      conn
+      |> put_status(404)
+      |> json(%{"error" => "{'credentials': ['unauthorized'}]"})
+    end
   end
 
   def change(conn, params) do
+    token_user = get_req_header(conn, "token")
+    token_api = [System.get_env("token")]
+    if token_user == token_api do
     # if System.get_env("token") != nil do
       workingtime = Repo.get(WorkingTime, params["id"])
       if workingtime do
@@ -121,14 +133,17 @@ defmodule ApiWeb.WorkingTimeController do
             |> json(%{"errors" => "{'credentials': ['workingtime not found']}"})
         end
       end
-    # else
-    #   conn
-    #   |> put_status(404)
-    #   |> json(%{"error" => "{'credentials': ['you are not logged in'}]"})
-    # end
+    else
+      conn
+      |> put_status(404)
+      |> json(%{"error" => "{'credentials': ['unauthorized'}]"})
+    end
   end
 
   def delete(conn, %{"id" => id}) do
+    token_user = get_req_header(conn, "token")
+    token_api = [System.get_env("token")]
+    if token_user == token_api do
     # if System.get_env("token") != nil do
       where = [id: id]
       select = [:start, :end, :id]
@@ -147,11 +162,11 @@ defmodule ApiWeb.WorkingTimeController do
         |> put_status(200)
         |> json(%{"response" => "Deleted"})
       end
-    # else
-    #   conn
-    #   |> put_status(404)
-    #   |> json(%{"error" => "{'credentials': ['you are not logged in'}]"})
-    # end
+    else
+      conn
+      |> put_status(404)
+      |> json(%{"error" => "{'credentials': ['unauthorized'}]"})
+    end
 
   end
 end
