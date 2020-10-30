@@ -11,6 +11,7 @@ defmodule ApiWeb.LoginController do
   def logout(conn, _params) do
     # if System.get_env("token") != nil do
       System.delete_env("token")
+      System.delete_env("role")
       conn
       |> put_status(200)
       |> json(%{"success" => "logged out"})
@@ -30,19 +31,28 @@ defmodule ApiWeb.LoginController do
       user = Repo.one(query)
       if user do
         password = :crypto.hash(:sha256, params["password"])
-        |>Base.encode16()
+        |> Base.encode16()
         |> String.downcase()
         if user.password == password do
           if System.get_env("token") == nil do
             token = get_csrf_token()
+            System.put_env("role", to_string(user.role))
             System.put_env("token", token)
+            System.put_env("user_id", to_string(user.id))
             conn
             |> put_status(200)
             |> json(%{"token" => token, "user" => user.id, "role" => user.role})
           else
+            System.delete_env("token")
+            System.delete_env("role")
+            System.delete_env("user_id")
+            token = get_csrf_token()
+            System.put_env("role", to_string(user.role))
+            System.put_env("token", token)
+            System.put_env("user_id", to_string(user.id))
             conn
             |> put_status(200)
-            |> json(%{"token" => System.get_env("token"), "user" => user.id, "role" => user.role})
+            |> json(%{"token" => token, "user" => user.id, "role" => user.role})
           end
         else
           conn

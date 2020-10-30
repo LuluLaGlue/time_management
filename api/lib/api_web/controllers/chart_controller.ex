@@ -10,38 +10,43 @@ defmodule ApiWeb.ChartController do
   action_fallback ApiWeb.FallbackController
 
   def index(conn, %{"userID" => id}) do
-    token_user = get_req_header(conn, "token")
+    token_user = get_req_header(conn, "authorization")
     token_api = [System.get_env("token")]
     if token_user == token_api do
-    # if System.get_env("token") != nil do
-      if id != "all" do
-        where = [id: id]
-        select = [:id]
-        query = from User, where: ^where, select: ^select
+      if System.get_env("user_id") == id or System.get_env("role") != "1" do
+        if id != "all" do
+          where = [id: id]
+          select = [:id]
+          query = from User, where: ^where, select: ^select
 
-        user = Repo.one(query)
+          user = Repo.one(query)
 
-        if user == nil do
-          conn
-          |> put_status(404)
-          |> json(%{"errors" => "{'credentials': ['user not found']}"})
+          if user == nil do
+            conn
+            |> put_status(404)
+            |> json(%{"errors" => "{'credentials': ['user not found']}"})
+          else
+            charts = Data.list_charts(%{"userID" => id})
+            render(conn, "index.json", charts: charts)
+          end
         else
-          charts = Data.list_charts(%{"userID" => id})
-          render(conn, "index.json", charts: charts)
+          chart = Repo.all(Chart)
+          |> Enum.map(&%{line: &1.line, bar: &1.bar, id: &1.id, donut: &1.donut, user_id: &1.user_id})
+
+          if chart == [] do
+            conn
+            |> put_status(404)
+            |> json(%{"error" => "{'credentials': ['chart not found']}"})
+          end
+
+          conn
+          |>put_status(200)
+          |> json(chart)
         end
       else
-        chart = Repo.all(Chart)
-        |> Enum.map(&%{line: &1.line, bar: &1.bar, id: &1.id, donut: &1.donut, user_id: &1.user_id})
-
-        if chart == [] do
-          conn
-          |> put_status(404)
-          |> json(%{"error" => "{'credentials': ['chart not found']}"})
-        end
-
         conn
-        |>put_status(200)
-        |> json(chart)
+        |> put_status(404)
+        |> json(%{"error" => "{'credentials': ['unauthorized']"})
       end
     else
       conn
@@ -51,9 +56,9 @@ defmodule ApiWeb.ChartController do
   end
 
   def create(conn, params) do
-    token_user = get_req_header(conn, "token")
+    token_user = get_req_header(conn, "authorization")
     token_api = [System.get_env("token")]
-    if token_user == token_api do
+    if token_user == token_api and System.get_env("role") != "1" do
       if params["userID"] != nil and params["line"] != nil and params["bar"] != nil and params["donut"] != nil do
         user = Repo.get(User, params["userID"])
 
@@ -88,23 +93,28 @@ defmodule ApiWeb.ChartController do
   end
 
   def show(conn, %{"userID" => id, "chartID" => chartID}) do
-    token_user = get_req_header(conn, "token")
+    token_user = get_req_header(conn, "authorization")
     token_api = [System.get_env("token")]
     if token_user == token_api do
-    # if System.get_env("token") != nil do
-      where = [user_id: id, id: chartID]
-      select = [:line, :bar, :donut, :user_id, :id]
-      query = from Chart, where: ^where, select: ^select
+      if System.get_env("user_id") == id or System.get_env("role") != "1" do
+        where = [user_id: id, id: chartID]
+        select = [:line, :bar, :donut, :user_id, :id]
+        query = from Chart, where: ^where, select: ^select
 
-      chart = Repo.one(query)
+        chart = Repo.one(query)
 
-      if chart == nil do
+        if chart == nil do
+          conn
+          |> put_status(404)
+          |> json(%{"errors" => "{'credentials': ['working times not found']}"})
+        else
+          chart = Data.get_chart!(%{"userID" => id, "chartID" => chartID})
+          render(conn, "show.json", chart: chart)
+        end
+      else
         conn
         |> put_status(404)
-        |> json(%{"errors" => "{'credentials': ['working times not found']}"})
-      else
-        chart = Data.get_chart!(%{"userID" => id, "chartID" => chartID})
-        render(conn, "show.json", chart: chart)
+        |> json(%{"error" => "{'credentials': ['unauthorized'}]"})
       end
     else
       conn
@@ -114,7 +124,7 @@ defmodule ApiWeb.ChartController do
   end
 
   def change(conn, params) do
-    token_user = get_req_header(conn, "token")
+    token_user = get_req_header(conn, "authorization")
     token_api = [System.get_env("token")]
     if token_user == token_api do
       where = [user_id: params["userID"]]
