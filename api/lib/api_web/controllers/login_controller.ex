@@ -8,19 +8,6 @@ defmodule ApiWeb.LoginController do
   import Ecto.Query
 
   action_fallback ApiWeb.FallbackController
-  def logout(conn, _params) do
-    # if System.get_env("token") != nil do
-      System.delete_env("token")
-      System.delete_env("role")
-      conn
-      |> put_status(200)
-      |> json(%{"success" => "logged out"})
-    # else
-    #   conn
-    #   |> put_status(404)
-    #   |> json(%{"error" => "{'credentials': ['you are not logged in'}]"})
-    # end
-  end
 
   def login(conn, params) do
     if params["email"] != nil and params["password"] != nil do
@@ -35,21 +22,12 @@ defmodule ApiWeb.LoginController do
         |> String.downcase()
         if user.password == password do
           if System.get_env("token") == nil do
-            token = get_csrf_token()
-            System.put_env("role", to_string(user.role))
-            System.put_env("token", token)
-            System.put_env("user_id", to_string(user.id))
+            token = Api.JWTHandle.createJWT(%{"role" => user.role, "user_id" => user.id, "csrf" => get_csrf_token()})
             conn
             |> put_status(200)
             |> json(%{"token" => token, "user" => user.id, "role" => user.role})
           else
-            System.delete_env("token")
-            System.delete_env("role")
-            System.delete_env("user_id")
-            token = get_csrf_token()
-            System.put_env("role", to_string(user.role))
-            System.put_env("token", token)
-            System.put_env("user_id", to_string(user.id))
+            token = Api.JWTHandle.createJWT(%{"role" => user.role, "user_id" => user.id, "csrf" => get_csrf_token()})
             conn
             |> put_status(200)
             |> json(%{"token" => token, "user" => user.id, "role" => user.role})

@@ -10,10 +10,10 @@ defmodule ApiWeb.ClockController do
   action_fallback ApiWeb.FallbackController
 
   def read(conn, %{"userID" => userID}) do
-    token_user = get_req_header(conn, "authorization")
-    token_api = [System.get_env("token")]
-    if token_user == token_api do
-      if System.get_env("user_id") == "userID" or System.get_env("role") != "1" do
+    token_user = get_req_header(conn, "authorization") |> List.first
+    {:ok, res} = Api.JWTHandle.decodeJWT(get_req_header(conn, "authorization") |> List.first)
+    if token_user == to_string(res.user_id) do
+      if to_string(res.user_id) == userID or res.role > 1 do
         if userID != "all" do
           where = [id: userID]
           select = [:id]
@@ -61,10 +61,10 @@ defmodule ApiWeb.ClockController do
   end
 
   def create(conn, %{"userID" => userID}) do
-    token_user = get_req_header(conn, "authorization")
-    token_api = [System.get_env("token")]
-    if token_user == token_api do
-      if System.get_env("user_id") == userID or System.get_env("role") == "3" do
+    token_user = get_req_header(conn, "authorization") |> List.first
+    {:ok, res} = Api.JWTHandle.decodeJWT(get_req_header(conn, "authorization") |> List.first)
+    if token_user == to_string(res.user_id) do
+      if to_string(res.user_id) == userID or res.role == 3 do
         count = Repo.all(from u in "clocks", select: fragment("count(*)"))
         id = List.first(count)
         user_tmp = Repo.get_by(User, [id: userID])

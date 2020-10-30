@@ -10,10 +10,10 @@ defmodule ApiWeb.ChartController do
   action_fallback ApiWeb.FallbackController
 
   def index(conn, %{"userID" => id}) do
-    token_user = get_req_header(conn, "authorization")
-    token_api = [System.get_env("token")]
-    if token_user == token_api do
-      if System.get_env("user_id") == id or System.get_env("role") != "1" do
+    token_user = get_req_header(conn, "authorization") |> List.first
+    {:ok, res} = Api.JWTHandle.decodeJWT(get_req_header(conn, "authorization") |> List.first)
+    if token_user == to_string(res.user_id) do
+      if to_string(res.user_id) == id or res.role > 1 do
         if id != "all" do
           where = [id: id]
           select = [:id]
@@ -56,9 +56,9 @@ defmodule ApiWeb.ChartController do
   end
 
   def create(conn, params) do
-    token_user = get_req_header(conn, "authorization")
-    token_api = [System.get_env("token")]
-    if token_user == token_api and System.get_env("role") != "1" do
+    token_user = get_req_header(conn, "authorization") |> List.first
+    {:ok, res} = Api.JWTHandle.decodeJWT(get_req_header(conn, "authorization") |> List.first)
+    if token_user == to_string(res.user_id) and res.role > 1 do
       if params["userID"] != nil and params["line"] != nil and params["bar"] != nil and params["donut"] != nil do
         user = Repo.get(User, params["userID"])
 
@@ -93,10 +93,10 @@ defmodule ApiWeb.ChartController do
   end
 
   def show(conn, %{"userID" => id, "chartID" => chartID}) do
-    token_user = get_req_header(conn, "authorization")
-    token_api = [System.get_env("token")]
-    if token_user == token_api do
-      if System.get_env("user_id") == id or System.get_env("role") != "1" do
+    token_user = get_req_header(conn, "authorization") |> List.first
+    {:ok, res} = Api.JWTHandle.decodeJWT(get_req_header(conn, "authorization") |> List.first)
+    if token_user == to_string(res.user_id) do
+      if to_string(res.user_id) == id or res.role > 1 do
         where = [user_id: id, id: chartID]
         select = [:line, :bar, :donut, :user_id, :id]
         query = from Chart, where: ^where, select: ^select
@@ -124,9 +124,9 @@ defmodule ApiWeb.ChartController do
   end
 
   def change(conn, params) do
-    token_user = get_req_header(conn, "authorization")
-    token_api = [System.get_env("token")]
-    if token_user == token_api do
+    token_user = get_req_header(conn, "authorization") |> List.first
+    {:ok, res} = Api.JWTHandle.decodeJWT(get_req_header(conn, "authorization") |> List.first)
+    if token_user == to_string(res.user_id) do
       where = [user_id: params["userID"]]
       select = [:line, :bar, :donut, :user_id, :id]
       query = from Chart, where: ^where, select: ^select
